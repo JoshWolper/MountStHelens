@@ -10,6 +10,7 @@ using namespace std;
 Eigen::Vector3d v(1,2,3);
 
 //vector<int> PointToGridIndeces(Eigen::Vector3d p);
+float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost);
 
 main(int argc, char* argv[]){
     
@@ -31,19 +32,24 @@ main(int argc, char* argv[]){
         return 1;
     }
 
-    for (const auto& value : dataPre) {
-        std::cout << static_cast<unsigned>(value) << " ";
-    }
-    std::cout << std::endl;
+    computeSurfaceDistances(5, 10, 20, 30, dataPre, dataPost);
+
+    filePre.close();
+    filePost.close();
+
+    return 0;
+}
+
+
+float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost){
 
     //Step 2: Generate points from A to B
 
     //Step 3: Compute height at each point while racking up the surface distance as we go!
 
-    //Step 4: Call function for before and after maps
-    
-    filePre.close();
-    filePost.close();
+    for (const auto& value : dataPre) {
+        std::cout << static_cast<unsigned>(value) << " ";
+    }
+    std::cout << std::endl;
 
-    return 0;
 }
