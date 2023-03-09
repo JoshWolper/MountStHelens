@@ -7,7 +7,8 @@
 
 using namespace std;
 
-Eigen::Vector3d v(1,2,3);
+//ASSUMPTIONS
+//1. we won't try to query two contiguous pixels since that calculation is done more easily by hand
 
 //vector<int> PointToGridIndeces(Eigen::Vector3d p);
 float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost);
@@ -46,6 +47,9 @@ main(int argc, char* argv[]){
 //Compute distance from A to B for pre and post eruption data, then print each and their difference!
 float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost){
 
+    //Params
+    double rp = 30.0 * sqrt(2);
+
     //Step 2: Generate points from A to B
     //Get 1-D index for 2D pixel coordinates
     int idxA = getIndex(x1, y1);
@@ -54,9 +58,29 @@ float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned ch
     Eigen::Vector3d B((double)x2 * 30.0 + 15.0, (double)y2 * 30.0 + 15.0, 0.0);
 
     //Now break line into segments of at LEAST length = rp = neighbor radius = 30 root 2
-    double length = (B-A).norm();
+    //We want as many quadrature points as possible while maintaining segmentLength > rp
+    Eigen::Vector3d direction = (B-A).normalized(); //normalized direction of path
+    double length = (B-A).norm(); //length of path
+    double segmentLength = length;
+    int numSegments = 1;
+    while(segmentLength > rp){
+        numSegments++;
+        segmentLength = length / (double)numSegments; 
+    }
 
-    cout << length << endl;
+    cout << "segmentLength: " << segmentLength << "and numSegments: " << numSegments << endl;
+
+    //Construct path of points
+    vector<Eigen::Vector3d> queryPoints;
+    queryPoints.push_back(A);
+    for(int i = 1; i < numSegments; i++){
+        Eigen::Vector3d newP = A;
+        newP += (direction * segmentLength * (double)i);
+        queryPoints.push_back(newP);
+    }
+    queryPoints.push_back(B);
+
+    cout << "queryPoints[0]: " << queryPoints[0] << " [1]: " << queryPoints[1] << " [510]: " << queryPoints[510] << " [511]: " << queryPoints[511];
 
     //Step 3: Compute height at each point while racking up the surface distance as we go!
 
