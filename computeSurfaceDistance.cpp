@@ -11,7 +11,7 @@ using namespace std;
 //1. we won't try to query two contiguous pixels since that calculation is done more easily by hand
 
 //vector<int> PointToGridIndeces(Eigen::Vector3d p);
-float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost);
+double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost);
 int getIndex(int x, int y);
 
 main(int argc, char* argv[]){
@@ -45,15 +45,13 @@ main(int argc, char* argv[]){
 /*=====================FUNCTIONS==========================*/
 
 //Compute distance from A to B for pre and post eruption data, then print each and their difference!
-float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost){
+double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost){
 
     //Params
     double rp = 30.0 * sqrt(2);
 
-    //Step 2: Generate points from A to B
-    //Get 1-D index for 2D pixel coordinates
-    int idxA = getIndex(x1, y1);
-    int idxB = getIndex(x2, y2);
+    //-----Step 2: Generate points from A to B
+
     Eigen::Vector3d A((double)x1 * 30.0 + 15.0, (double)y1 * 30.0 + 15.0, 0.0); //compute 3D location of A (cells are 30 m wide, pixels are cell-centered) -- fill height later since different between maps
     Eigen::Vector3d B((double)x2 * 30.0 + 15.0, (double)y2 * 30.0 + 15.0, 0.0);
 
@@ -82,10 +80,28 @@ float computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned ch
 
     cout << "queryPoints[0]: " << queryPoints[0] << " [1]: " << queryPoints[1] << " [510]: " << queryPoints[510] << " [511]: " << queryPoints[511];
 
-    //Step 3: Compute height at each point while racking up the surface distance as we go!
+    //-----Step 3: Compute height at each point while racking up the surface distance as we go!
+    
+    //Get 1-D index for 2D pixel coordinates
+    int idxA = getIndex(x1, y1);
+    int idxB = getIndex(x2, y2);
+    
+    //First let's do this for PRE data
+    double distancePre = 0.0;
+    for(int i = 0; i < (int)queryPoints.size(); i++){
+        if(i == 0){ //A
+            queryPoints[0][2] = (double)dataPre[idxA] * 11.0; //directly set A's height from the pixel data
+        }
+        if(i == numSegments){ //B
+            queryPoints[numSegments][2] = (double)dataPre[idxB] * 11.0;
+        }
+    }
+
+    cout << "queryPoints[0]: " << queryPoints[0] << " [numSegments]: " << queryPoints[numSegments] << endl;
 
     // for (const auto& value : dataPre) {
     //     std::cout << static_cast<unsigned>(value) << " ";
+    //     break;
     // }
     // std::cout << std::endl;
 
