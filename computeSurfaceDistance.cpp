@@ -10,9 +10,10 @@ using namespace std;
 //ASSUMPTIONS
 //1. we won't try to query two contiguous pixels since that calculation is done more easily by hand
 
-//vector<int> PointToGridIndeces(Eigen::Vector3d p);
+vector<int> PointToGridIndeces(Eigen::Vector3d p);
 double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost);
 int getIndex(int x, int y);
+void computeHeight(Eigen::Vector3d& p, double rp, vector<unsigned char>& data);
 
 main(int argc, char* argv[]){
     
@@ -66,7 +67,7 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
         segmentLength = length / (double)numSegments; 
     }
 
-    cout << "segmentLength: " << segmentLength << "and numSegments: " << numSegments << endl;
+    //cout << "segmentLength: " << segmentLength << "and numSegments: " << numSegments << endl;
 
     //Construct path of points
     vector<Eigen::Vector3d> queryPoints;
@@ -78,7 +79,7 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
     }
     queryPoints.push_back(B);
 
-    cout << "queryPoints[0]: " << queryPoints[0] << " [1]: " << queryPoints[1] << " [510]: " << queryPoints[510] << " [511]: " << queryPoints[511];
+    //cout << "queryPoints[0]: " << queryPoints[0] << " [1]: " << queryPoints[1] << " [510]: " << queryPoints[510] << " [511]: " << queryPoints[511];
 
     //-----Step 3: Compute height at each point while racking up the surface distance as we go!
     
@@ -92,12 +93,23 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
         if(i == 0){ //A
             queryPoints[0][2] = (double)dataPre[idxA] * 11.0; //directly set A's height from the pixel data
         }
-        if(i == numSegments){ //B
-            queryPoints[numSegments][2] = (double)dataPre[idxB] * 11.0;
+        else if(i == numSegments){ //B
+            queryPoints[numSegments][2] = (double)dataPre[idxB] * 11.0; //directly set B's height from pixel data
+        }
+        else{
+            //Compute Height Using Kernel
+            Eigen::Vector3d currPoint = queryPoints[i];
+            computeHeight(currPoint, rp, dataPre);
+            cout << "computed height:" << currPoint[2] << endl;
+            
         }
     }
 
-    cout << "queryPoints[0]: " << queryPoints[0] << " [numSegments]: " << queryPoints[numSegments] << endl;
+    // vector<int> idx;
+    // idx = PointToGridIndeces(Eigen::Vector3d(165.0, 2145.0, 0.0));
+    // cout << "PtoIdx for (5,71): " << idx[0] << ", " << idx[1] << endl;
+
+    //cout << "queryPoints[0]: " << queryPoints[0] << " [numSegments]: " << queryPoints[numSegments] << endl;
 
     // for (const auto& value : dataPre) {
     //     std::cout << static_cast<unsigned>(value) << " ";
@@ -109,4 +121,45 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
 
 int getIndex(int x, int y){
     return x + (y * 512);
+}
+
+void computeHeight(Eigen::Vector3d& p, double rp, vector<unsigned char>& data){
+    vector<int> idx;
+    idx = PointToGridIndeces(p); //get 2-D grid index --> which pixel is our query point inside?
+    int i = idx[0];
+    int j = idx[1];
+    double Hx = 0; //field num, H(x)
+    double Sx = 0; //field denom, S(x)
+    for(int r = i-2; r < i+3; r++){ //iterate the 5x5 stencil of neighbor cells 
+        for(int s = j-2; s < j+2; s++){
+            
+            //index filtering --> NO TOROIDAL BEHAVIOR HERE
+            if(r > 511 || s > 511 || r < 0 || s < 0){
+                continue;
+            }
+
+            Eigen::Vector3d pixelPos((double)r * 30.0 + 15.0, (double)s * 30.0 + 15.0, 0.0);
+            int pixelIdx = getIndex(r, s);
+            double rBar = (p - pixelPos).norm() / rp;
+            double omega = 1 - (3 * rBar * rBar) + (2 * rBar * rBar * rBar);
+            double pixelHeight = (double)data[pixelIdx] * 11.0;
+
+            Hx += pixelHeight * omega;
+            Sx += omega;
+        }
+    }
+    p[2] = Hx / Sx; //set height in the point
+    
+    return;
+}
+
+//What pixel coordinate does this particle lie in?
+vector<int> PointToGridIndeces(Eigen::Vector3d p){
+    vector<int> idx(2,-1);
+    int i, j = 0;
+    i = floor(p[0]/30.0);
+    j = floor(p[1]/30.0);
+    idx[0] = i;
+    idx[1] = j;
+    return idx;
 }
