@@ -36,6 +36,7 @@ main(int argc, char* argv[]){
     }
 
     computeSurfaceDistances(0, 0, 511, 511, dataPre, dataPost); //diagonal across whole map
+    computeSurfaceDistances(170, 170, 340, 340, dataPre, dataPost); //diagonal across middle 1/3rd
 
     filePre.close();
     filePost.close();
@@ -47,6 +48,8 @@ main(int argc, char* argv[]){
 
 //Compute distance from A to B for pre and post eruption data, then print each and their difference!
 double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost){
+
+    cout << "Computing surface distance from pixel A = (" << x1 << "," << y1 << ") to pixel B = (" << x2 << ", " << y2 << ")" << endl;
 
     //Params
     double rp = 30.0 * sqrt(2);
@@ -94,29 +97,52 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
             queryPoints[0][2] = (double)dataPre[idxA] * 11.0; //directly set A's height from the pixel data
         }
         else if(i == numSegments){ //B
-            queryPoints[numSegments][2] = (double)dataPre[idxB] * 11.0; //directly set B's height from pixel data
+            queryPoints[i][2] = (double)dataPre[idxB] * 11.0; //directly set B's height from pixel data
+            Eigen::Vector3d currPoint = queryPoints[i];
+            Eigen::Vector3d prevPoint = queryPoints[i-1];
+            distancePre += (currPoint - prevPoint).norm();
         }
         else{
             //Compute Height Using Kernel
             Eigen::Vector3d currPoint = queryPoints[i];
+            Eigen::Vector3d prevPoint = queryPoints[i-1];
+
             computeHeight(currPoint, rp, dataPre);
-            cout << "computed height:" << currPoint[2] << endl;
+            queryPoints[i] = currPoint; //update this point to include height! because we grab i-1 to compare
             
+            distancePre += (currPoint - prevPoint).norm();
         }
     }
 
-    // vector<int> idx;
-    // idx = PointToGridIndeces(Eigen::Vector3d(165.0, 2145.0, 0.0));
-    // cout << "PtoIdx for (5,71): " << idx[0] << ", " << idx[1] << endl;
+    cout << "Surface Distance Pre-Eruption: " << distancePre << endl;
 
-    //cout << "queryPoints[0]: " << queryPoints[0] << " [numSegments]: " << queryPoints[numSegments] << endl;
+    //Now for the POST data!
+    double distancePost = 0.0;
+    for(int i = 0; i < (int)queryPoints.size(); i++){
+        if(i == 0){ //A
+            queryPoints[0][2] = (double)dataPost[idxA] * 11.0; //directly set A's height from the pixel data
+        }
+        else if(i == numSegments){ //B
+            queryPoints[i][2] = (double)dataPost[idxB] * 11.0; //directly set B's height from pixel data
+            Eigen::Vector3d currPoint = queryPoints[i];
+            Eigen::Vector3d prevPoint = queryPoints[i-1];
+            distancePost += (currPoint - prevPoint).norm();
+        }
+        else{
+            //Compute Height Using Kernel
+            Eigen::Vector3d currPoint = queryPoints[i];
+            Eigen::Vector3d prevPoint = queryPoints[i-1];
 
-    // for (const auto& value : dataPre) {
-    //     std::cout << static_cast<unsigned>(value) << " ";
-    //     break;
-    // }
-    // std::cout << std::endl;
+            computeHeight(currPoint, rp, dataPost);
+            queryPoints[i] = currPoint; //update this point to include height! because we grab i-1 to compare
+            
+            distancePost += (currPoint - prevPoint).norm();
+        }
+    }
 
+    cout << "Surface Distance Post-Eruption: " << distancePost << endl;
+
+    cout << "Distance Post - Distance Pre: " << distancePost - distancePre << endl;
 }
 
 int getIndex(int x, int y){
