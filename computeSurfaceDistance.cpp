@@ -9,6 +9,7 @@ using namespace std;
 
 //ASSUMPTIONS
 //1. we won't try to query two contiguous pixels since that calculation is done more easily by hand
+//2. this kernel method will work :)
 
 vector<int> PointToGridIndeces(Eigen::Vector3d p);
 double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned char>& dataPre, vector<unsigned char>& dataPost);
@@ -35,8 +36,10 @@ main(int argc, char* argv[]){
         return 1;
     }
 
+    //Query whichever points we want here!
     computeSurfaceDistances(0, 0, 511, 511, dataPre, dataPost); //diagonal across whole map
-    computeSurfaceDistances(170, 170, 340, 340, dataPre, dataPost); //diagonal across middle 1/3rd
+    computeSurfaceDistances(170, 170, 340, 340, dataPre, dataPost); //diagonal across middle 1/3rd diagonal
+    computeSurfaceDistances(170, 340, 340, 340, dataPre, dataPost); //roughly straight across peak
 
     filePre.close();
     filePost.close();
@@ -70,8 +73,6 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
         segmentLength = length / (double)numSegments; 
     }
 
-    //cout << "segmentLength: " << segmentLength << "and numSegments: " << numSegments << endl;
-
     //Construct path of points
     vector<Eigen::Vector3d> queryPoints;
     queryPoints.push_back(A);
@@ -81,8 +82,6 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
         queryPoints.push_back(newP);
     }
     queryPoints.push_back(B);
-
-    //cout << "queryPoints[0]: " << queryPoints[0] << " [1]: " << queryPoints[1] << " [510]: " << queryPoints[510] << " [511]: " << queryPoints[511];
 
     //-----Step 3: Compute height at each point while racking up the surface distance as we go!
     
@@ -142,13 +141,16 @@ double computeSurfaceDistances(int x1, int y1, int x2, int y2, vector<unsigned c
 
     cout << "Surface Distance Post-Eruption: " << distancePost << endl;
 
-    cout << "Distance Post - Distance Pre: " << distancePost - distancePre << endl;
+    cout << "Distance Post - Distance Pre: " << distancePost - distancePre << endl << endl;
 }
 
 int getIndex(int x, int y){
     return x + (y * 512);
 }
 
+// Inspired by the scalar field construction done by Homel and Herbold 2016 to compute damage gradients in MPM
+// Free PDF on ResearchGate: https://www.researchgate.net/publication/303917651_Field-Gradient_Partitioning_for_Fracture_and_Frictional_Contact_in_the_Material_Point_Method
+// Check Equations 17 to 19
 void computeHeight(Eigen::Vector3d& p, double rp, vector<unsigned char>& data){
     vector<int> idx;
     idx = PointToGridIndeces(p); //get 2-D grid index --> which pixel is our query point inside?
@@ -168,13 +170,18 @@ void computeHeight(Eigen::Vector3d& p, double rp, vector<unsigned char>& data){
             int pixelIdx = getIndex(r, s);
             double rBar = (p - pixelPos).norm() / rp;
             double omega = 1 - (3 * rBar * rBar) + (2 * rBar * rBar * rBar);
+            if(rBar > 1.0){
+                omega = 0.0; //distance check is baked into rBar
+            }
             double pixelHeight = (double)data[pixelIdx] * 11.0;
 
             Hx += pixelHeight * omega;
             Sx += omega;
         }
     }
-    p[2] = Hx / Sx; //set height in the point
+    if(Sx > 0){
+        p[2] = Hx / Sx; //set height in the point
+    }
     
     return;
 }
